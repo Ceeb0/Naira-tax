@@ -1,30 +1,53 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const MadLoader: React.FC = () => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(timer);
+          return 100;
+        }
+        return prev + Math.floor(Math.random() * 10) + 1;
+      });
+    }, 150);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-royal-900/90 backdrop-blur-md">
-      <div className="relative">
-        {/* Spinning Rings */}
-        <div className="w-24 h-24 border-4 border-gold-400/30 rounded-full animate-spin-slow"></div>
-        <div className="absolute top-0 left-0 w-24 h-24 border-t-4 border-gold-400 rounded-full animate-spin"></div>
-        
-        {/* Inner Pulse */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-          <span className="text-3xl font-bold text-white font-display animate-pulse">₦</span>
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#050E24] overflow-hidden">
+      {/* Background Ambience */}
+      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(16,39,85,0.4),rgba(5,14,36,1))] pointer-events-none"></div>
+      
+      <div className="relative z-10 flex flex-col items-center">
+        <div className="relative">
+          {/* Spinning Rings */}
+          <div className="w-32 h-32 border-[1px] border-gold-400/20 rounded-full animate-spin-slow"></div>
+          <div className="absolute top-0 left-0 w-32 h-32 border-t-2 border-gold-400 rounded-full animate-spin"></div>
+          <div className="absolute top-4 left-4 w-24 h-24 border-b-2 border-blue-500 rounded-full animate-spin" style={{ animationDirection: 'reverse', animationDuration: '2s' }}></div>
+          
+          {/* Inner Pulse */}
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+            <span className="text-4xl font-bold text-white font-display tracking-tighter">
+              {Math.min(progress, 99)}%
+            </span>
+          </div>
         </div>
 
-        {/* Floating Numbers */}
-        <div className="absolute -top-8 -right-8 animate-float" style={{ animationDelay: '0s' }}>
-          <span className="text-xs text-gold-400 font-mono opacity-60">11%</span>
+        <h3 className="mt-12 text-sm font-display text-blue-200/70 tracking-[0.3em] uppercase animate-pulse">
+          Calculating Tax Liablity
+        </h3>
+        
+        {/* Floating background particles */}
+        <div className="absolute -top-20 -right-20 animate-float delay-100 opacity-20">
+          <div className="w-16 h-16 bg-gold-400 rounded-full blur-xl"></div>
         </div>
-        <div className="absolute -bottom-6 -left-8 animate-float" style={{ animationDelay: '1s' }}>
-           <span className="text-xs text-blue-300 font-mono opacity-60">19%</span>
-        </div>
-        <div className="absolute top-1/2 -right-12 animate-float" style={{ animationDelay: '0.5s' }}>
-           <span className="text-xs text-green-400 font-mono opacity-60">+24%</span>
+         <div className="absolute -bottom-20 -left-20 animate-float delay-300 opacity-20">
+          <div className="w-20 h-20 bg-blue-600 rounded-full blur-xl"></div>
         </div>
       </div>
-      <h3 className="mt-8 text-xl font-display text-white tracking-widest uppercase animate-pulse">Crunching Numbers...</h3>
     </div>
   );
 };
