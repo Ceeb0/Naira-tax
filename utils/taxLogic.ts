@@ -1,3 +1,4 @@
+
 import { MonthlyInput, TaxResult, TaxBandBreakdown, Transaction, SalaryTier } from '../types';
 
 export const CURRENCIES: Record<string, { symbol: string, locale: string, name: string }> = {
@@ -6,6 +7,16 @@ export const CURRENCIES: Record<string, { symbol: string, locale: string, name: 
   GBP: { symbol: '£', locale: 'en-GB', name: 'Pound' },
   EUR: { symbol: '€', locale: 'en-IE', name: 'Euro' },
 };
+
+export const SPECIALIZED_TAX_RATES = [
+  { label: 'VAT (Sales Tax)', rate: 7.5, category: 'Indirect' },
+  { label: 'WHT (Rent)', rate: 10, category: 'Withholding' },
+  { label: 'WHT (Professional/Contract)', rate: 5, category: 'Withholding' },
+  { label: 'CIT (Large Company)', rate: 30, category: 'Company' },
+  { label: 'Development Levy', rate: 4, category: 'Company' },
+  { label: 'CGT (Assets)', rate: 30, category: 'Capital Gains' },
+  { label: 'Stamp Duty (Proxy)', rate: 0.5, category: 'Stamp' },
+];
 
 export const COMMON_EXPENSES = [
   { label: 'National Housing Fund (NHF)', isTaxDeductible: true }, 
@@ -20,46 +31,15 @@ export const COMMON_EXPENSES = [
 ];
 
 export const NIGERIAN_BANKS = [
-  "Access Bank",
-  "Access Bank (Diamond)",
-  "ALAT by WEMA",
-  "Citibank Nigeria",
-  "Ecobank Nigeria",
-  "Fidelity Bank",
-  "First Bank of Nigeria",
-  "First City Monument Bank (FCMB)",
-  "Globus Bank",
-  "Guaranty Trust Bank (GTBank)",
-  "Heritage Bank",
-  "Jaiz Bank",
-  "Keystone Bank",
-  "Kuda Bank",
-  "Lotus Bank",
-  "Moniepoint Microfinance Bank",
-  "Opay (Paycom)",
-  "Optimus Bank",
-  "PalmPay",
-  "Parallex Bank",
-  "Polaris Bank",
-  "Premium Trust Bank",
-  "Providus Bank",
-  "Stanbic IBTC Bank",
-  "Standard Chartered Bank",
-  "Sterling Bank",
-  "SunTrust Bank",
-  "Taj Bank",
-  "Titan Trust Bank",
-  "Union Bank of Nigeria",
-  "United Bank for Africa (UBA)",
-  "Unity Bank",
-  "VFD Microfinance Bank",
-  "Wema Bank",
-  "Zenith Bank"
+  "Access Bank", "Access Bank (Diamond)", "ALAT by WEMA", "Citibank Nigeria", "Ecobank Nigeria",
+  "Fidelity Bank", "First Bank of Nigeria", "FCMB", "Globus Bank", "GTBank",
+  "Heritage Bank", "Jaiz Bank", "Keystone Bank", "Kuda Bank", "Lotus Bank",
+  "Moniepoint MFB", "Opay", "Optimus Bank", "PalmPay", "Parallex Bank",
+  "Polaris Bank", "Premium Trust Bank", "Providus Bank", "Stanbic IBTC", "Standard Chartered",
+  "Sterling Bank", "SunTrust Bank", "Taj Bank", "Titan Trust", "Union Bank",
+  "UBA", "Union Bank", "VFD MFB", "Wema Bank", "Zenith Bank"
 ];
 
-/**
- * Determines the salary tier based on monthly income amount.
- */
 export const getSalaryTier = (amount: number): SalaryTier => {
   if (amount < 200000) return SalaryTier.LOW;
   if (amount < 1000000) return SalaryTier.MID;
@@ -67,60 +47,53 @@ export const getSalaryTier = (amount: number): SalaryTier => {
   return SalaryTier.ELITE;
 };
 
-/**
- * Calculates tax for a single month's data by annualizing it, 
- * calculating annual liability, then dividing by 12.
- */
 const calculateSingleMonth = (input: MonthlyInput, customTaxRate?: number) => {
-  // 1. Total Monthly Income
-  const totalMonthlyIncome = input.incomeSources.reduce((sum, source) => sum + source.amount, 0);
+  const isAnnual = !!input.isAnnual;
+  const totalPeriodIncome = input.incomeSources.reduce((sum, source) => sum + source.amount, 0);
 
-  // 2. Expenses (Annualize)
-  let annualTaxDeductible = 0;
-  let annualPersonalExpenses = 0;
+  let periodTaxDeductible = 0;
+  let periodPersonalExpenses = 0;
 
   input.expenses.forEach(exp => {
-    const annualAmount = exp.amount * 12;
-    if (exp.isTaxDeductible) {
-      annualTaxDeductible += annualAmount;
-    } else {
-      annualPersonalExpenses += annualAmount;
+    periodTaxDeductible += exp.amount;
+    if (!exp.isTaxDeductible) {
+      periodPersonalExpenses += exp.amount;
     }
   });
 
-  // 3. Annual Gross
-  const annualGross = totalMonthlyIncome * 12;
-
-  // 4. Pension (8%)
+  const annualGross = isAnnual ? totalPeriodIncome : totalPeriodIncome * 12;
+  const annualTaxDeductible = isAnnual ? periodTaxDeductible : periodTaxDeductible * 12;
+  const annualPersonalExpenses = isAnnual ? periodPersonalExpenses : periodPersonalExpenses * 12;
+  
   const annualPension = annualGross * 0.08;
 
-  // 5. CRA
   const onePercentGross = annualGross * 0.01;
   const fixedRelief = 200000;
   const baseRelief = Math.max(fixedRelief, onePercentGross);
   const twentyPercentGross = annualGross * 0.20;
   const annualCRA = baseRelief + twentyPercentGross;
 
-  // 6. Taxable Income
   let annualTaxable = annualGross - annualCRA - annualPension - annualTaxDeductible;
   if (annualTaxable < 0) annualTaxable = 0;
 
-  // 7. Calculate Tax
   let annualTax = 0;
   const breakdown: TaxBandBreakdown[] = [];
 
   if (customTaxRate !== undefined && !isNaN(customTaxRate)) {
-      const rateDecimal = customTaxRate / 100;
-      annualTax = annualTaxable * rateDecimal;
+      annualTax = annualGross * (customTaxRate / 100);
+      breakdown.push({
+          band: 'Specialized Rate',
+          rate: customTaxRate / 100,
+          amount: annualTax
+      });
   } else {
       let remainingTaxable = annualTaxable;
       const bands = [
-        { limit: 300000, rate: 0.07 },
-        { limit: 300000, rate: 0.11 },
-        { limit: 500000, rate: 0.15 },
-        { limit: 500000, rate: 0.19 },
-        { limit: 1600000, rate: 0.21 },
-        { limit: Infinity, rate: 0.24 },
+        { limit: 800000, rate: 0.00, label: 'First ₦800k' },
+        { limit: 2200000, rate: 0.15, label: '₦800k - ₦3M' }, 
+        { limit: 9000000, rate: 0.18, label: '₦3M - ₦12M' }, 
+        { limit: 38000000, rate: 0.21, label: '₦12M - ₦50M' }, 
+        { limit: Infinity, rate: 0.23, label: 'Above ₦50M' },
       ];
 
       for (const band of bands) {
@@ -132,17 +105,18 @@ const calculateSingleMonth = (input: MonthlyInput, customTaxRate?: number) => {
         
         if (taxAmount > 0) {
              breakdown.push({
-                band: band.limit === Infinity ? 'Above ₦3.2M' : `Next ₦${(band.limit / 1000).toFixed(0)}k`,
+                band: band.label,
                 rate: band.rate,
-                amount: taxAmount // Annual amount
+                amount: taxAmount
              });
         }
       }
   }
 
-  // 8. Monthly Values (Divide Annual by 12)
+  const divisor = isAnnual ? 1 : 12;
+
   return {
-    gross: totalMonthlyIncome,
+    gross: annualGross / 12, // Standardize back to monthly for aggregated logic if multiple months
     pension: annualPension / 12,
     cra: annualCRA / 12,
     taxable: annualTaxable / 12,
@@ -150,16 +124,24 @@ const calculateSingleMonth = (input: MonthlyInput, customTaxRate?: number) => {
     taxDeductible: annualTaxDeductible / 12,
     personalExpenses: annualPersonalExpenses / 12,
     net: (annualGross - annualPension - annualTax - annualTaxDeductible) / 12,
-    final: ((annualGross - annualPension - annualTax - annualTaxDeductible) - annualPersonalExpenses) / 12,
-    breakdown // Annual breakdown structure, we'll scale it later if needed or just aggregate numbers
+    final: ((annualGross - annualPension - annualTax - annualTaxDeductible) - annualPersonalExpenses) / divisor,
+    // For single month mode res.final is monthly. For annual mode res.final is annual.
+    // Wait, the aggregated loop below sums them up. If it's one month marked as annual, 
+    // it should just return the full annual figures.
+    annualGross,
+    annualTax,
+    annualNet: annualGross - annualPension - annualTax - annualTaxDeductible,
+    annualFinal: (annualGross - annualPension - annualTax - annualTaxDeductible) - annualPersonalExpenses,
+    isAnnual,
+    breakdown 
   };
 };
 
 export const calculateTax = (monthlyInputs: MonthlyInput[], customTaxRate?: number): TaxResult => {
   const selectedMonths = monthlyInputs.map(m => m.month);
   const monthsCount = monthlyInputs.length || 1;
+  const isFullAnnualMode = monthlyInputs.length === 1 && !!monthlyInputs[0].isAnnual;
 
-  // Aggregate accumulators
   let totalGross = 0;
   let totalPension = 0;
   let totalCRA = 0;
@@ -170,79 +152,71 @@ export const calculateTax = (monthlyInputs: MonthlyInput[], customTaxRate?: numb
   let totalNet = 0;
   let totalFinal = 0;
 
-  // History Ledger
   const transactionHistory: Transaction[] = [];
-
-  // We will average the breakdown for display purposes, or sum them. 
-  // Summing makes sense for the "Total Period" view.
   const aggregatedBreakdownMap: Record<string, TaxBandBreakdown> = {};
 
   monthlyInputs.forEach(input => {
-    // 1. Process Calculation
     const res = calculateSingleMonth(input, customTaxRate);
     
-    totalGross += res.gross;
-    totalPension += res.pension;
-    totalCRA += res.cra;
-    totalTaxable += res.taxable;
-    totalTax += res.tax;
-    totalTaxDeductible += res.taxDeductible;
-    totalPersonalExpenses += res.personalExpenses;
-    totalNet += res.net;
-    totalFinal += res.final;
+    if (res.isAnnual) {
+        // If the single input provided is annual data
+        totalGross = res.annualGross;
+        totalPension = res.pension * 12;
+        totalCRA = res.cra * 12;
+        totalTaxable = res.taxable * 12;
+        totalTax = res.annualTax;
+        totalTaxDeductible = res.taxDeductible * 12;
+        totalPersonalExpenses = res.personalExpenses * 12;
+        totalNet = res.annualNet;
+        totalFinal = res.annualFinal;
 
-    // 2. Aggregate Breakdown
-    res.breakdown.forEach(b => {
-        if (!aggregatedBreakdownMap[b.band]) {
-            aggregatedBreakdownMap[b.band] = { ...b, amount: 0 };
-        }
-        aggregatedBreakdownMap[b.band].amount += (b.amount / 12);
-    });
+        res.breakdown.forEach(b => {
+            if (!aggregatedBreakdownMap[b.band]) {
+                aggregatedBreakdownMap[b.band] = { ...b, amount: 0 };
+            }
+            aggregatedBreakdownMap[b.band].amount += b.amount;
+        });
+    } else {
+        totalGross += res.gross;
+        totalPension += res.pension;
+        totalCRA += res.cra;
+        totalTaxable += res.taxable;
+        totalTax += res.tax;
+        totalTaxDeductible += res.taxDeductible;
+        totalPersonalExpenses += res.personalExpenses;
+        totalNet += res.net;
+        totalFinal += res.final;
 
-    // 3. Populate History
+        res.breakdown.forEach(b => {
+            if (!aggregatedBreakdownMap[b.band]) {
+                aggregatedBreakdownMap[b.band] = { ...b, amount: 0 };
+            }
+            aggregatedBreakdownMap[b.band].amount += (b.amount / 12);
+        });
+    }
+
     input.incomeSources.forEach(inc => {
         transactionHistory.push({
-            id: inc.id,
-            month: input.month,
-            type: 'Income',
-            description: inc.description,
-            amount: inc.amount,
-            bank: inc.bank,
-            date: inc.date,
-            receiptRef: inc.receiptRef
+            id: inc.id, month: input.month, type: 'Income', description: inc.description, amount: inc.amount,
+            bank: inc.bank, date: inc.date, receiptRef: inc.receiptRef
         });
     });
 
     input.expenses.forEach(exp => {
         transactionHistory.push({
-            id: exp.id,
-            month: input.month,
-            type: 'Expense',
-            description: exp.category,
-            amount: exp.amount,
-            bank: exp.bank,
-            date: exp.date,
-            receiptRef: exp.receiptRef,
-            isTaxDeductible: exp.isTaxDeductible
+            id: exp.id, month: input.month, type: 'Expense', description: exp.category, amount: exp.amount,
+            bank: exp.bank, date: exp.date, receiptRef: exp.receiptRef, isTaxDeductible: exp.isTaxDeductible
         });
     });
   });
 
   const breakdown = Object.values(aggregatedBreakdownMap);
 
-  // Determine Period Label
   let periodLabel = 'Monthly';
-  if (monthsCount === 12 && selectedMonths.length === 12) periodLabel = 'Annual (Full Year)';
+  if (isFullAnnualMode) periodLabel = 'Annual (Full Year)';
+  else if (monthsCount === 12) periodLabel = 'Annual (Breakdown)';
   else if (monthsCount === 1) periodLabel = selectedMonths[0] || 'Monthly';
-  else {
-      if (monthsCount <= 3) {
-          const last = selectedMonths[monthsCount - 1];
-          const rest = selectedMonths.slice(0, monthsCount - 1).join(', ');
-          periodLabel = `${rest} & ${last}`;
-      } else {
-          periodLabel = `${monthsCount} Selected Months`;
-      }
-  }
+  else periodLabel = `${monthsCount} Selected Months`;
 
   return {
     grossIncome: totalGross,
@@ -253,10 +227,10 @@ export const calculateTax = (monthlyInputs: MonthlyInput[], customTaxRate?: numb
     netIncome: totalNet,
     breakdown: breakdown,
     period: periodLabel,
-    durationMonths: monthsCount,
+    durationMonths: isFullAnnualMode ? 12 : monthsCount,
     selectedMonths: selectedMonths,
     effectiveTaxRate: totalGross > 0 ? (totalTax / totalGross) * 100 : 0,
-    dailyNet: totalNet / (monthsCount * 30),
+    dailyNet: totalNet / ((isFullAnnualMode ? 12 : monthsCount) * 30),
     totalTaxDeductible: totalTaxDeductible,
     totalPersonalExpenses: totalPersonalExpenses,
     finalBalance: totalFinal,

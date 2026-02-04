@@ -1,4 +1,5 @@
 
+
 export type CurrencyCode = 'NGN' | 'USD' | 'GBP' | 'EUR';
 
 export interface TaxResult {
@@ -8,17 +9,16 @@ export interface TaxResult {
   taxableIncome: number;
   payeTax: number;
   netIncome: number;
-  breakdown: TaxBandBreakdown[]; // Represents the aggregate breakdown
-  period: string; // 'Monthly', 'Annual', or 'Jan, Feb...'
+  breakdown: TaxBandBreakdown[]; 
+  period: string; 
   durationMonths: number;
-  selectedMonths: string[]; // List of selected months
+  selectedMonths: string[]; 
   effectiveTaxRate: number;
   dailyNet: number;
-  // New Expense Fields
-  totalTaxDeductible: number; // Sum of NHF, NHIS, etc.
-  totalPersonalExpenses: number; // Rent, Food, etc.
-  finalBalance: number; // Net Income - Personal Expenses
-  transactionHistory: Transaction[]; // Ledger of all inputs
+  totalTaxDeductible: number; 
+  totalPersonalExpenses: number; 
+  finalBalance: number; 
+  transactionHistory: Transaction[]; 
 }
 
 export interface Transaction {
@@ -42,7 +42,7 @@ export interface TaxBandBreakdown {
 export interface IncomeSource {
   id: string;
   description: string;
-  amount: number; // Always Monthly in the internal logic
+  amount: number; 
   bank?: string;
   date?: string;
   receiptRef?: string;
@@ -51,7 +51,7 @@ export interface IncomeSource {
 export interface Expense {
   id: string;
   category: string;
-  amount: number; // Monthly
+  amount: number; 
   isTaxDeductible: boolean;
   bank?: string;
   date?: string;
@@ -62,11 +62,10 @@ export interface MonthlyInput {
   month: string;
   incomeSources: IncomeSource[];
   expenses: Expense[];
+  isAnnual?: boolean;
 }
 
 export interface FinancialInput {
-  // Deprecated in favor of MonthlyInput[] for multi-month calcs, 
-  // but kept for compatibility if needed, or used as a single-month container.
   incomeSources: IncomeSource[];
   expenses: Expense[];
   customTaxRate?: number;
@@ -88,6 +87,35 @@ export interface ChartData {
 export interface CustomCategory {
   label: string;
   isTaxDeductible: boolean;
+}
+
+// Added RowItem interface to support UI state tracking for dynamic form rows in the Calculator component
+export interface RowItem {
+  id: string;
+  text: string;
+  amount: string;
+  isExpanded: boolean;
+  date?: string;
+  bank?: string;
+  receiptRef?: string;
+  isTaxDeductible?: boolean;
+}
+
+export interface TaxReminder {
+  id: string;
+  userId: string;
+  taxType: string;
+  dueDate: string;
+  amount?: number;
+  notes?: string;
+  isCompleted: boolean;
+  createdAt: string;
+}
+
+export interface SavedCalculation {
+  id: string;
+  timestamp: string;
+  result: TaxResult;
 }
 
 export interface UserPreferences {
